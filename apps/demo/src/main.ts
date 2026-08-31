@@ -131,11 +131,14 @@ class FpsTracker {
   private dragging = false;
   private dragOffset = 0;
   private blockedUntil = 0;
+  private jsMotion = true;
+  private running = false;
   fps = 60;
   maxFrameGap = 0;
   private spark: Sparkline;
   private sparkCanvas: HTMLCanvasElement;
   private sparkColor: string;
+  private note: HTMLElement | null = null;
 
   constructor(
     private orb: HTMLElement,
@@ -148,13 +151,15 @@ class FpsTracker {
     this.sparkCanvas = sparkCanvas;
     this.sparkColor = sparkColor;
     this.spark = new Sparkline(sparkCanvas, sparkColor);
+    this.note = panel.querySelector(".stage-note");
     this.bindDrag();
   }
 
   start(): void {
-    // Recreate spark after layout so canvas has real dimensions
+    this.running = true;
     this.spark = new Sparkline(this.sparkCanvas, this.sparkColor);
     const loop = (t: number) => {
+      if (!this.running) return;
       const dt = t - this.last;
       this.last = t;
       this.frames.push(dt);
@@ -166,23 +171,49 @@ class FpsTracker {
       this.badge.classList.toggle("low", this.fps < 45);
       this.spark.push(this.fps);
 
-      const blocked = dt > 80 || this.fps < 20;
+      const blocked = this.jsMotion && (dt > 80 || this.fps < 20);
       if (blocked) this.blockedUntil = t + 120;
       this.banner.classList.toggle("on", t < this.blockedUntil);
       this.banner.textContent =
         dt > 200 ? `blocked ${dt.toFixed(0)} ms` : "main thread blocked";
 
-      if (!this.dragging) {
+      if (this.jsMotion && !this.dragging) {
         this.x += this.dir * 2.4;
         const stage = this.panel.querySelector(".stage") as HTMLElement;
         const max = stage.clientWidth - 44;
         if (this.x > max) this.dir = -1;
         if (this.x < 12) this.dir = 1;
+        this.orb.style.transform = `translate3d(${this.x}px,0,0)`;
       }
-      this.orb.style.transform = `translate3d(${this.x}px,0,0)`;
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
+  }
+
+  /**
+   * Hand motion to the compositor (CSS). Survives main-thread freezes —
+   * used on the PreFrame panel during the sync freeze phase so the split
+   * is visually obvious.
+   */
+  enableCompositorMotion(label = "compositor alive"): void {
+    this.jsMotion = false;
+    this.orb.classList.add("css-alive");
+    this.orb.style.transform = "";
+    this.banner.classList.remove("on");
+    this.blockedUntil = 0;
+    if (this.note) {
+      this.note.textContent = label;
+      this.note.classList.add("on");
+    }
+  }
+
+  /** Return to JS rAF-driven motion (proves main thread is free). */
+  enableJsMotion(): void {
+    this.jsMotion = true;
+    this.orb.classList.remove("css-alive");
+    this.note?.classList.remove("on");
+    this.last = performance.now();
+    this.frames = [];
   }
 
   resetGaps(): void {
@@ -192,20 +223,21 @@ class FpsTracker {
     this.banner.classList.remove("on");
   }
 
-  /** Clear false-positive blocked state after another panel froze the tab. */
   clearBlocked(): void {
     this.blockedUntil = 0;
     this.banner.classList.remove("on");
     this.frames = [];
+    this.last = performance.now();
   }
 
   private bindDrag(): void {
     const onDown = (clientX: number) => {
+      if (!this.jsMotion) return;
       this.dragging = true;
       this.dragOffset = clientX - this.x;
     };
     const onMove = (clientX: number) => {
-      if (!this.dragging) return;
+      if (!this.dragging || !this.jsMotion) return;
       const stage = this.panel.querySelector(".stage") as HTMLElement;
       const max = stage.clientWidth - 44;
       this.x = Math.min(max, Math.max(12, clientX - this.dragOffset));
@@ -237,6 +269,7 @@ function buildPanel(kind: "without" | "with"): { wrap: HTMLElement; els: PanelEl
         <div class="orb" title="Drag me while it runs"></div>
         <div class="fps-badge">60 FPS</div>
         <div class="blocked-banner"></div>
+        <div class="stage-note"></div>
       </div>
       <canvas class="spark" aria-hidden="true"></canvas>
       <div class="ui-row">
@@ -483,7 +516,7 @@ function main(): void {
       <div class="arena-bar">
         <div class="arena-title">
           <span>Same work. Same checksum. Different scheduling.</span>
-          <span>Drag the dots · type · click. Sync freezes the tab; PreFrame should not.</span>
+          <span>Drag the dots · type · click. During sync, watch left freeze while right keeps moving (compositor).</span>
         </div>
         <div class="arena-controls">
           <label class="select-wrap">shape
@@ -550,8 +583,8 @@ function main(): void {
     <div class="countdown-overlay" id="countdown-overlay" aria-live="assertive">
       <div class="countdown-card">
         <div class="eyebrow-c">Next: synchronous freeze</div>
-        <h3>Try typing or dragging…</h3>
-        <p>When the countdown hits zero, identical work runs without yielding. The tab will lock.</p>
+        <h3>Watch the split.</h3>
+        <p>Left orb is JS-driven (will freeze). Right orb switches to the compositor — it keeps moving while the main thread locks.</p>
         <div class="count" id="countdown-n">3</div>
       </div>
     </div>
@@ -652,6 +685,8 @@ function main(): void {
   const barPfV = delta.querySelector("#bar-pf-v") as HTMLElement;
 
   async function countdown(seconds = 3): Promise<void> {
+    // Hand PreFrame panel to compositor so it keeps moving during the freeze
+    fpsRight.enableCompositorMotion("compositor · still moving");
     countdownEl.classList.add("on");
     for (let s = seconds; s >= 1; s--) {
       countdownN.textContent = String(s);
@@ -676,7 +711,11 @@ function main(): void {
     });
   }
 
-  async function runWithout(opts: { callout?: boolean } = { callout: true }): Promise<string> {
+  async function runWithout(opts: { callout?: boolean; prepareCompositor?: boolean } = { callout: true }): Promise<string> {
+    if (opts.prepareCompositor !== false) {
+      fpsRight.enableCompositorMotion("compositor · still moving");
+      await new Promise((r) => setTimeout(r, 80));
+    }
     const { items, kind, base } = getWork();
     leftM = emptyMetrics();
     fpsLeft.resetGaps();
@@ -707,7 +746,11 @@ function main(): void {
     };
     renderMetrics(left.els, leftM);
     fpsRight.clearBlocked();
+    fpsLeft.clearBlocked();
+    // After sync, return PreFrame panel to JS motion (proves thread is free again)
+    fpsRight.enableJsMotion();
     if (opts.callout !== false) showFreezeCallout(result.maxBlockMs);
+    maybeShowDelta();
     return leftM.checksum;
   }
 
@@ -750,7 +793,20 @@ function main(): void {
     };
     renderMetrics(right.els, rightM);
     window.setTimeout(() => liveAdapt.classList.remove("on"), 1200);
+    maybeShowDelta();
     return rightM.checksum;
+  }
+
+  function maybeShowDelta(): void {
+    if (
+      leftM.checksum !== "—" &&
+      rightM.checksum !== "—" &&
+      leftM.checksum === rightM.checksum &&
+      leftM.maxBlockMs > 0 &&
+      rightM.maxBlockMs > 0
+    ) {
+      showDelta(leftM.maxBlockMs, rightM.maxBlockMs, leftM.checksum);
+    }
   }
 
   runWithoutBtn.addEventListener("click", async () => {
@@ -785,7 +841,7 @@ function main(): void {
       await new Promise((r) => setTimeout(r, 400));
       verifyStatus.textContent = "Step 2/2 — sync freeze incoming…";
       await countdown(3);
-      const a = await runWithout({ callout: true });
+      const a = await runWithout({ callout: true, prepareCompositor: false });
       if (a === b) {
         showDelta(leftM.maxBlockMs, rightM.maxBlockMs, a);
         verifyStatus.textContent = `PASS · checksum ${a} · ${formatMs(leftM.maxBlockMs)} → ${formatMs(rightM.maxBlockMs)}`;
@@ -796,6 +852,13 @@ function main(): void {
       }
     } finally {
       setBusy(false);
+    }
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !runBothBtn.disabled) {
+      e.preventDefault();
+      runBothBtn.click();
     }
   });
 }

@@ -10,6 +10,7 @@
     "build": "pnpm -r --filter=./packages/* build && pnpm --filter @preframe/demo build",
     "test": "pnpm --filter @preframe/core test",
     "benchmark": "pnpm --filter @preframe/benchmark start",
+    "verify:demo": "pnpm --filter @preframe/demo exec node scripts/verify-demo.mjs",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r --if-present lint"
   },

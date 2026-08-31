@@ -47,11 +47,15 @@ pnpm install
 pnpm dev
 ```
 
-Open the split-screen demo:
+Open the split-screen demo. Hit **Run live comparison** (or `⌘/Ctrl+Enter`):
 
-- **Left:** same CPU workload, fully synchronous → orb freezes, input stalls, FPS collapses  
-- **Right:** identical work through PreFrame → animation and controls stay responsive  
-- Both sides print the same **result checksum** so you can verify the work was not faked
+1. PreFrame runs — drag/type; UI stays fluid; live AIMD readout  
+2. Countdown — right orb switches to **compositor** CSS motion  
+3. Sync freeze — left JS orb locks; right keeps moving; then a ×-reduction banner  
+
+Both sides print the same **result checksum**.
+
+Critic harness: `pnpm verify:demo` (requires `pnpm dev`).
 
 ## How it works
 
