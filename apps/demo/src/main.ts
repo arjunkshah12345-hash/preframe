@@ -466,7 +466,7 @@ async function runPreframeWorkload(
           return async () => {
             await mc();
             n += 1;
-            if (n % 6 === 0) await raf();
+            if (n % 8 === 0) await raf();
           };
         })(),
       },
@@ -525,6 +525,9 @@ function main(): void {
       <div class="delta-bars">
         <div class="bar-row"><span>sync</span><div class="bar-track"><div class="bar-fill sync" id="bar-sync"></div></div><span id="bar-sync-v">—</span></div>
         <div class="bar-row"><span>preframe</span><div class="bar-track"><div class="bar-fill pf" id="bar-pf"></div></div><span id="bar-pf-v">—</span></div>
+      </div>
+      <div class="delta-actions">
+        <button type="button" class="ghost" id="copy-results">Copy results</button>
       </div>
     </div>
   `);
@@ -612,6 +615,19 @@ function main(): void {
   `);
 
   app.append(nav, hero, delta, arena, how, footer, freezeOverlay, countdownOverlay);
+
+  const toast = el(`<div class="toast" id="toast" role="status"></div>`);
+  app.append(toast);
+
+  function showToast(msg: string): void {
+    toast.textContent = msg;
+    toast.classList.add("on");
+    window.setTimeout(() => toast.classList.remove("on"), 1800);
+  }
+
+  function scrollToProof(): void {
+    arena.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   const fpsLeft = new FpsTracker(
     left.els.orb,
@@ -736,6 +752,23 @@ function main(): void {
     });
   }
 
+  delta.querySelector("#copy-results")!.addEventListener("click", async () => {
+    const text = [
+      "PreFrame vs sync (identical work)",
+      `max block: ${formatMs(rightM.maxBlockMs)} vs ${formatMs(leftM.maxBlockMs)} (${deltaBig.textContent} less blocking)`,
+      `wall: ${formatMs(rightM.totalMs)} vs ${formatMs(leftM.totalMs)}`,
+      `yields: ${rightM.yields} vs ${leftM.yields}`,
+      `checksum: ${leftM.checksum}`,
+      "https://github.com/arjunkshah12345-hash/preframe",
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Results copied");
+    } catch {
+      showToast("Clipboard unavailable");
+    }
+  });
+
   async function runWithout(opts: { callout?: boolean; prepareCompositor?: boolean } = { callout: true }): Promise<string> {
     if (opts.prepareCompositor !== false) {
       fpsRight.enableCompositorMotion("compositor · still moving");
@@ -837,6 +870,7 @@ function main(): void {
   runWithoutBtn.addEventListener("click", async () => {
     setBusy(true);
     deltaEl.classList.remove("on");
+    scrollToProof();
     try {
       await runWithout();
       verifyStatus.textContent = `sync checksum ${leftM.checksum} · max block ${formatMs(leftM.maxBlockMs)}`;
@@ -848,6 +882,7 @@ function main(): void {
   runWithBtn.addEventListener("click", async () => {
     setBusy(true);
     deltaEl.classList.remove("on");
+    scrollToProof();
     try {
       await runWith();
       verifyStatus.textContent = `preframe checksum ${rightM.checksum} · max block ${formatMs(rightM.maxBlockMs)}`;
@@ -860,6 +895,7 @@ function main(): void {
     setBusy(true);
     verifyStatus.className = "";
     deltaEl.classList.remove("on");
+    scrollToProof();
     try {
       verifyStatus.textContent = "Step 1/2 — PreFrame (drag / type — should stay fluid)";
       const b = await runWith();

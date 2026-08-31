@@ -66,6 +66,27 @@ body::before {
   z-index: 0;
 }
 
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 50;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(94, 106, 210, 0.0) 15%,
+    rgba(94, 106, 210, 0.85) 45%,
+    rgba(130, 143, 255, 0.95) 55%,
+    rgba(94, 106, 210, 0.0) 85%,
+    transparent 100%
+  );
+  opacity: 0.9;
+}
+
 #app {
   position: relative;
   z-index: 1;
@@ -361,8 +382,40 @@ button.ghost {
   background: var(--blocked-bright);
 }
 
-.delta .bar-fill.pf {
-  background: var(--alive-bright);
+.delta .delta-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.delta .delta-actions button {
+  font-size: 12px;
+  padding: 7px 11px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--surface-3);
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 60;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.toast.on {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* —— Arena —— */

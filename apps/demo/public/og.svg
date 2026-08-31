@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#010102"/>
+  <rect y="0" width="1200" height="3" fill="url(#g)"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1200" y2="0">
+      <stop stop-color="#5e6ad2" stop-opacity="0"/>
+      <stop offset="0.45" stop-color="#5e6ad2"/>
+      <stop offset="0.55" stop-color="#828fff"/>
+      <stop offset="1" stop-color="#5e6ad2" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <text x="72" y="120" fill="#828fff" font-family="ui-sans-serif,system-ui" font-size="22" font-weight="500" letter-spacing="4">PREFRAME</text>
+  <text x="72" y="210" fill="#f7f8f8" font-family="ui-sans-serif,system-ui" font-size="64" font-weight="600">Work hard without</text>
+  <text x="72" y="280" fill="#8a8f98" font-family="ui-sans-serif,system-ui" font-size="64" font-weight="600">freezing the page.</text>
+  <text x="72" y="360" fill="#8a8f98" font-family="ui-sans-serif,system-ui" font-size="28">Adaptive cooperative scheduling for JavaScript</text>
+  <rect x="72" y="420" width="280" height="72" rx="10" fill="#141516" stroke="#23252a"/>
+  <text x="92" y="465" fill="#ff6b81" font-family="ui-monospace,Menlo" font-size="22">sync  ~2s block</text>
+  <rect x="372" y="420" width="320" height="72" rx="10" fill="#141516" stroke="#23252a"/>
+  <text x="392" y="465" fill="#4ade80" font-family="ui-monospace,Menlo" font-size="22">preframe  ~8ms</text>
+</svg>

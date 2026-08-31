@@ -34,6 +34,12 @@ After the slice completes:
 | Fixed T ms only | Still needs a check interval; no learning across slices |
 | AIMD-EWMA | Tracks cost + backs off hard on pressure, probes up when safe |
 
+## Runtime notes
+
+`run()` only `await`s thenables. Sync work functions must not pay a microtask per item — that tax dominated wall time on large collections before PreFrame 0.1.
+
+Once warmed (`samples ≥ 4`), deadline checks run every 4 iterations to cut `performance.now()` overhead while still respecting the frame budget.
+
 ## Learning variant
 
 `learningRecommendBatch` widens the safety margin from recent overshoot ratio and variance. It is a statistical online predictor, not an MLP. Kept as an experiment hook; the default path is AIMD-EWMA which won on simplicity vs benefit in early benches.

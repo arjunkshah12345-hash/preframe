@@ -48,7 +48,7 @@ export async function run<T, R = void>(
     const sliceStart = i;
     const hardDeadline = scheduler.env.now() + scheduler.getBudget();
     // Check deadline every iteration while cold; every 8 once stable (cuts now() tax).
-    const checkEvery = scheduler.getState().samples < 4 ? 1 : 8;
+    const checkEvery = scheduler.getState().samples < 4 ? 1 : 4;
     let sinceCheck = 0;
 
     while (i < end) {
