@@ -1,6 +1,7 @@
 /**
- * Headless verification: sync must block ~≥800ms; PreFrame max slice ≤40ms;
- * checksums must match; PreFrame mid-run FPS should stay healthy.
+ * Headless critic for the PreFrame demo.
+ * Asserts freeze drama, PreFrame fluidity, checksum integrity, wall ratio,
+ * and compositor handoff on the PreFrame orb during sync.
  */
 import { chromium } from "playwright";
 
@@ -21,7 +22,6 @@ async function main() {
   const calib = await page.locator("#calib-meta").innerText();
   console.log("calib:", calib.replace(/\s+/g, " "));
 
-  // Mid-run FPS while PreFrame is working
   await page.click("#run-with");
   const fpsSamples = [];
   for (let i = 0; i < 5; i++) {
@@ -47,8 +47,23 @@ async function main() {
   const withYields = await page.locator('.panel-with [data-m="yields"]').innerText();
   console.log("preframe:", { withMax, withCs, withYields });
 
+  // Compositor handoff must engage before / during sync freeze
+  const compositorSeen = page.waitForFunction(
+    () => !!document.querySelector(".panel-with .orb.css-alive"),
+    null,
+    { timeout: 5000 },
+  );
+
   const t0 = Date.now();
   await page.click("#run-without");
+  let sawCompositor = false;
+  try {
+    await compositorSeen;
+    sawCompositor = true;
+  } catch {
+    sawCompositor = false;
+  }
+
   await page.waitForFunction(
     () => {
       const el = document.querySelector('.panel-without [data-m="checksum"]');
@@ -61,19 +76,24 @@ async function main() {
 
   const syncMax = await page.locator('.panel-without [data-m="maxBlockMs"]').innerText();
   const syncCs = await page.locator('.panel-without [data-m="checksum"]').innerText();
-  console.log("sync:", { syncMax, syncCs, wallMs: wall });
+  console.log("sync:", { syncMax, syncCs, wallMs: wall, sawCompositor });
 
-  // Dismiss freeze callout if visible
   const dismiss = page.locator("#freeze-dismiss");
   if (await dismiss.isVisible().catch(() => false)) {
     await dismiss.click();
   }
 
+  // After sync, JS motion should be restored
+  await page.waitForTimeout(100);
+  const stillCss = await page.locator(".panel-with .orb.css-alive").count();
+
   const withWall = await page.locator('.panel-with [data-m="totalMs"]').innerText();
   const syncWall = await page.locator('.panel-without [data-m="totalMs"]').innerText();
   console.log("walls:", { withWall, syncWall });
 
-  await page.waitForTimeout(300);
+  // Delta banner should appear once both sides match
+  const deltaOn = await page.locator("#delta.on").count();
+
   await page.screenshot({ path: "/tmp/preframe-gauntlet.png", fullPage: true });
   await browser.close();
 
@@ -93,15 +113,18 @@ async function main() {
   if (!(syncBlock >= 800)) verdicts.push(`SYNC_TOO_SHORT ${syncBlock}ms (want ≥800)`);
   if (!(preBlock <= 16)) verdicts.push(`PREFRAME_SLICE_HIGH ${preBlock}ms (want ≤16)`);
   if (!(midFps >= 40)) verdicts.push(`PREFRAME_FPS_LOW mid-run ${midFpsText} (want ≥40)`);
-  if (preTotal > syncTotal * 3.0) {
-    verdicts.push(`PREFRAME_WALL_BLOAT ${preTotal}ms vs sync ${syncTotal}ms (>3.0x)`);
+  if (preTotal > syncTotal * 1.6) {
+    verdicts.push(`PREFRAME_WALL_BLOAT ${preTotal}ms vs sync ${syncTotal}ms (>1.6x)`);
   }
+  if (!sawCompositor) verdicts.push("COMPOSITOR_HANDOFF_MISSING during sync prepare");
+  if (stillCss > 0) verdicts.push("COMPOSITOR_STUCK after sync (expected JS motion restore)");
+  if (!deltaOn) verdicts.push("DELTA_BANNER_MISSING after both runs");
 
   const ratio = preBlock > 0 ? syncBlock / preBlock : 0;
   console.log(`blocking reduction: ${ratio.toFixed(1)}×`);
 
   if (!verdicts.length) {
-    console.log("CRITIC_VERDICT: PASS — freeze noticeable, PreFrame fluid, checksums match");
+    console.log("CRITIC_VERDICT: PASS — freeze, fluid PreFrame, compositor handoff, tight wall");
     process.exit(0);
   }
   console.log("CRITIC_VERDICT: FAIL");

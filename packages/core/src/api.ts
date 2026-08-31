@@ -47,11 +47,20 @@ export async function run<T, R = void>(
     const end = Math.min(list.length, i + batch);
     const sliceStart = i;
     const hardDeadline = scheduler.env.now() + scheduler.getBudget();
+    // Check deadline every iteration while cold; every 8 once stable (cuts now() tax).
+    const checkEvery = scheduler.getState().samples < 4 ? 1 : 8;
+    let sinceCheck = 0;
+
     while (i < end) {
-      const item = list[i]!;
-      results[i] = await fn(item, i);
+      const out = fn(list[i]!, i);
+      // Avoid `await` on sync work — that was ~1 microtask per item.
+      results[i] = isThenable(out) ? await out : out;
       i += 1;
-      if (i < end && (scheduler.shouldYield() || scheduler.env.now() >= hardDeadline)) break;
+      sinceCheck += 1;
+      if (sinceCheck >= checkEvery) {
+        sinceCheck = 0;
+        if (scheduler.shouldYield() || scheduler.env.now() >= hardDeadline) break;
+      }
     }
     scheduler.noteIterations(i - sliceStart);
 
@@ -70,6 +79,14 @@ export async function run<T, R = void>(
   }
 
   return { results, metrics: scheduler.finish() };
+}
+
+function isThenable<T>(v: T | Promise<T>): v is Promise<T> {
+  return (
+    v != null &&
+    (typeof v === "object" || typeof v === "function") &&
+    typeof (v as Promise<T>).then === "function"
+  );
 }
 
 export async function forEach<T>(

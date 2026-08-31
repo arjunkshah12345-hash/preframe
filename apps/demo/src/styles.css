@@ -620,6 +620,73 @@ button.ghost {
   border-color: rgba(74, 222, 128, 0.35);
 }
 
+.heartbeat {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heartbeat span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--alive-bright);
+  transform: scale(0.55);
+  opacity: 0.45;
+  will-change: transform, opacity;
+}
+
+.panel-without .heartbeat span {
+  background: var(--blocked-bright);
+}
+
+.budget-gauge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.budget-gauge i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--accent-hover);
+  transition: none;
+}
+
+.panel-without .budget-gauge i {
+  background: var(--blocked-bright);
+}
+
+.panel-with .budget-gauge i {
+  background: var(--alive-bright);
+}
+
+.kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-tertiary);
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 2px 6px;
+  margin-left: 6px;
+}
+
+.panel-with .stage-note.on {
+  color: var(--alive-bright);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
 .fps-badge {
   position: absolute;
   top: 10px;

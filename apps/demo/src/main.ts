@@ -32,6 +32,8 @@ interface PanelEls {
   clickBtn: HTMLButtonElement;
   clickCount: HTMLElement;
   progress: HTMLElement;
+  heartbeat: HTMLElement;
+  budget: HTMLElement;
   metrics: Record<string, HTMLElement>;
 }
 
@@ -147,6 +149,8 @@ class FpsTracker {
     private panel: HTMLElement,
     sparkCanvas: HTMLCanvasElement,
     sparkColor: string,
+    private heartbeat?: HTMLElement,
+    private budgetFill?: HTMLElement,
   ) {
     this.sparkCanvas = sparkCanvas;
     this.sparkColor = sparkColor;
@@ -170,6 +174,18 @@ class FpsTracker {
       this.badge.textContent = `${this.fps.toFixed(0)} FPS`;
       this.badge.classList.toggle("low", this.fps < 45);
       this.spark.push(this.fps);
+
+      // Heartbeat only advances on rAF — freezes solid when JS is blocked
+      if (this.heartbeat) {
+        const pulse = 0.55 + 0.45 * Math.sin(t / 120);
+        this.heartbeat.style.transform = `scale(${pulse})`;
+        this.heartbeat.style.opacity = String(0.35 + 0.65 * ((pulse - 0.55) / 0.45));
+      }
+      if (this.budgetFill && this.jsMotion) {
+        // Approximate fill within a 16ms frame from last frame duration
+        const fill = Math.min(100, (dt / 16) * 100);
+        this.budgetFill.style.width = `${fill}%`;
+      }
 
       const blocked = this.jsMotion && (dt > 80 || this.fps < 20);
       if (blocked) this.blockedUntil = t + 120;
@@ -270,6 +286,8 @@ function buildPanel(kind: "without" | "with"): { wrap: HTMLElement; els: PanelEl
         <div class="fps-badge">60 FPS</div>
         <div class="blocked-banner"></div>
         <div class="stage-note"></div>
+        <div class="heartbeat" title="Main-thread heartbeat (rAF)"><span></span></div>
+        <div class="budget-gauge" title="Frame budget fill"><i></i></div>
       </div>
       <canvas class="spark" aria-hidden="true"></canvas>
       <div class="ui-row">
@@ -307,6 +325,8 @@ function buildPanel(kind: "without" | "with"): { wrap: HTMLElement; els: PanelEl
     clickBtn: wrap.querySelector(".ui-row button")!,
     clickCount: wrap.querySelector(".click-count")!,
     progress: wrap.querySelector(".progress > span")!,
+    heartbeat: wrap.querySelector(".heartbeat span")!,
+    budget: wrap.querySelector(".budget-gauge i")!,
     metrics,
   };
 
@@ -492,6 +512,7 @@ function main(): void {
         <button class="primary" id="run-both" type="button">Run live comparison</button>
         <button class="ghost" id="run-without" type="button">Freeze only</button>
         <button class="ghost" id="run-with" type="button">PreFrame only</button>
+        <span class="kbd">⌘↵</span>
       </div>
       <div class="meta-row" id="calib-meta">Calibrating workload to this machine…</div>
     </header>
@@ -599,6 +620,8 @@ function main(): void {
     left.els.root,
     left.els.spark,
     "#ff6b81",
+    left.els.heartbeat,
+    left.els.budget,
   );
   const fpsRight = new FpsTracker(
     right.els.orb,
@@ -607,6 +630,8 @@ function main(): void {
     right.els.root,
     right.els.spark,
     "#4ade80",
+    right.els.heartbeat,
+    right.els.budget,
   );
   // Defer spark sizing until laid out
   requestAnimationFrame(() => {
