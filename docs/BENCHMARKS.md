@@ -1,8 +1,10 @@
 # Benchmark results (snapshot)
 
-Recorded on: Apple M4, 10 CPUs, darwin arm64, Node v25.3.0  
+Recorded on: **Apple M4**, 10 CPUs, darwin arm64, **Node v25.3.0**  
 Config: `PREFRAME_BENCH_ITERS=2 PREFRAME_BENCH_WARMUP=1`, seed `424242`  
 Integrity: cross-strategy checksum probe **PASS**
+
+> These numbers are a **snapshot**, not a product claim. Re-run with `pnpm benchmark` on your hardware. See [METHODOLOGY.md](./METHODOLOGY.md).
 
 ## Uniform (n=80,000)
 
@@ -42,11 +44,23 @@ Integrity: cross-strategy checksum probe **PASS**
 | fixed-time | 120.0 | 5.0 | 12 | 61.0 |
 | **preframe** | **224.7** | **8.6** | **13** | **120.9** |
 
+## Browser demo critic (observational)
+
+On the same machine, the split-screen demo calibrates ~1.6s of sync work and typically reports:
+
+| Metric | Sync | PreFrame |
+|---|---:|---:|
+| Max block | ~1.6–2.7 s | ~8 ms |
+| Blocking reduction | — | ~200–340× |
+| Mid-run FPS (PreFrame) | — | ~45–57 |
+
+Wall ratio varies with load (~1.1–1.4× sync). The demo’s right-panel motion during sync freeze uses a **CSS compositor** handoff so something keeps moving while the main thread is blocked — labeled honestly in the UI. That is not PreFrame scheduling itself.
+
 ## Honest reading
 
-- **Sync wins wall-clock** when the machine is otherwise idle — expected.
-- **Fixed 100-item chunks** keep tiny slice times but destroy throughput via yield overhead (especially on `large`).
-- **PreFrame** targets the useful tradeoff: max blocking near the frame budget (~8ms) with far fewer yields than fixed chunks.
-- **Fixed-time (5ms)** is a strong baseline; PreFrame's edge is adapting batch size without a per-iteration `now()` poll inside every item, and reacting to variance / input pending in the browser.
+- **Sync wins wall-clock** when the machine is otherwise idle — expected.  
+- **Fixed 100-item chunks** keep tiny slice times but destroy throughput via yield overhead (especially on `large`).  
+- **PreFrame** targets the useful tradeoff: max blocking near the frame budget (~8ms) with far fewer yields than fixed chunks.  
+- **Fixed-time (5ms)** is a strong baseline; PreFrame’s edge is adapting batch size without a per-iteration `now()` poll on every item, and reacting to variance / input pending in the browser.  
 
-Re-run with `pnpm benchmark`. See [METHODOLOGY.md](./METHODOLOGY.md).
+Re-run with `pnpm benchmark`. Cite methodology, not just the pretty column.

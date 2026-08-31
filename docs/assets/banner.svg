@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" fill="none" role="img" aria-label="PreFrame banner">
+  <defs>
+    <linearGradient id="top" x1="0" y1="0" x2="1280" y2="0">
+      <stop stop-color="#5e6ad2" stop-opacity="0"/>
+      <stop offset="0.4" stop-color="#5e6ad2"/>
+      <stop offset="0.6" stop-color="#828fff"/>
+      <stop offset="1" stop-color="#5e6ad2" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="640" y1="80" x2="640" y2="560">
+      <stop stop-color="#5e6ad2" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#010102" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#141516" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="640" fill="#010102"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+  <rect y="0" width="1280" height="3" fill="url(#top)"/>
+
+  <!-- logo mark -->
+  <g transform="translate(72,72)">
+    <rect width="56" height="56" rx="14" fill="#0a0a0b" stroke="#23252a"/>
+    <path d="M14 20V14h6M42 20V14h-6M14 36v6h6M42 36v6h-6" stroke="#828fff" stroke-width="2.5" stroke-linecap="round"/>
+    <rect x="18" y="34" width="4" height="8" rx="1" fill="#5e6ad2"/>
+    <rect x="24" y="28" width="4" height="14" rx="1" fill="#5e6ad2"/>
+    <rect x="30" y="22" width="4" height="20" rx="1" fill="#828fff"/>
+    <rect x="36" y="30" width="4" height="12" rx="1" fill="#5e6ad2"/>
+  </g>
+
+  <text x="148" y="108" fill="#f7f8f8" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="36" font-weight="600" letter-spacing="-0.5">PreFrame</text>
+  <text x="72" y="220" fill="#f7f8f8" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="64" font-weight="600" letter-spacing="-1.5">Work hard without</text>
+  <text x="72" y="292" fill="#8a8f98" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="64" font-weight="600" letter-spacing="-1.5">freezing the page.</text>
+  <text x="72" y="360" fill="#62666d" font-family="ui-sans-serif,system-ui,-apple-system,sans-serif" font-size="24">Adaptive cooperative scheduling for JavaScript · AIMD-EWMA · ~7.5 KB</text>
+
+  <!-- comparison chips -->
+  <rect x="72" y="420" width="300" height="80" rx="12" fill="#0a0a0b" stroke="#23252a"/>
+  <text x="96" y="456" fill="#ff6b81" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="18">sync</text>
+  <text x="96" y="486" fill="#8a8f98" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="22">max block ~2s</text>
+
+  <rect x="392" y="420" width="340" height="80" rx="12" fill="#0a0a0b" stroke="#2a3a2a"/>
+  <text x="416" y="456" fill="#4ade80" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="18">preframe</text>
+  <text x="416" y="486" fill="#8a8f98" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="22">max block ~8ms · 300×‘</text>
+
+  <text x="72" y="560" fill="#3f434a" font-family="ui-sans-serif,system-ui,sans-serif" font-size="16">Cooperative only  not preemption · MIT</text>
+</svg>

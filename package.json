@@ -3,6 +3,24 @@
   "private": true,
   "version": "0.1.0",
   "description": "Adaptive cooperative scheduling for JavaScript — work hard without freezing the page",
+  "homepage": "https://github.com/arjunkshah12345-hash/preframe",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arjunkshah12345-hash/preframe.git"
+  },
+  "bugs": {
+    "url": "https://github.com/arjunkshah12345-hash/preframe/issues"
+  },
+  "keywords": [
+    "scheduling",
+    "cooperative",
+    "main-thread",
+    "yield",
+    "aimd",
+    "ewma",
+    "performance",
+    "responsiveness"
+  ],
   "type": "module",
   "packageManager": "pnpm@10.11.1",
   "scripts": {

@@ -1,0 +1,31 @@
+name: Bug report
+description: Something broken in core, vite plugin, demo, or benchmarks
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. Please confirm checksum integrity still holds if this is a performance claim (`pnpm benchmark`).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Expected vs actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Minimal code or steps
+      render: typescript
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "OS, Node, browser, PreFrame commit"
+    validations:
+      required: true

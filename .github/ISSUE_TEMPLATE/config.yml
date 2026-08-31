@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Docs
+    url: https://github.com/arjunkshah12345-hash/preframe/blob/main/docs/README.md
+    about: Algorithm, API, methodology, and guide
+  - name: Benchmark methodology
+    url: https://github.com/arjunkshah12345-hash/preframe/blob/main/docs/METHODOLOGY.md
+    about: How we measure — read before filing “too slow” issues

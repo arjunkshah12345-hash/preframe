@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" fill="none" role="img" aria-label="PreFrame scheduling loop">
+  <rect width="960" height="420" rx="16" fill="#010102"/>
+  <rect x="1" y="1" width="958" height="418" rx="15" stroke="#23252a"/>
+
+  <text x="32" y="44" fill="#828fff" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14" font-weight="600" letter-spacing="2">AIMD-EWMA LOOP</text>
+
+  <!-- boxes -->
+  <g font-family="ui-sans-serif,system-ui,sans-serif">
+    <rect x="40" y="80" width="180" height="88" rx="12" fill="#0a0a0b" stroke="#23252a"/>
+    <text x="56" y="116" fill="#f7f8f8" font-size="16" font-weight="600">1 · Measure</text>
+    <text x="56" y="142" fill="#8a8f98" font-size="13">EWMA of per-item cost</text>
+    <text x="56" y="160" fill="#62666d" font-size="12">+ variance</text>
+
+    <rect x="270" y="80" width="180" height="88" rx="12" fill="#0a0a0b" stroke="#23252a"/>
+    <text x="286" y="116" fill="#f7f8f8" font-size="16" font-weight="600">2 · Budget</text>
+    <text x="286" y="142" fill="#8a8f98" font-size="13">frame  safety margin</text>
+    <text x="286" y="160" fill="#62666d" font-size="12">FPS / priority / hidden</text>
+
+    <rect x="500" y="80" width="180" height="88" rx="12" fill="#0a0a0b" stroke="#23252a"/>
+    <text x="516" y="116" fill="#f7f8f8" font-size="16" font-weight="600">3 · Batch</text>
+    <text x="516" y="142" fill="#8a8f98" font-size="13">min(budget/cost, cwnd)</text>
+    <text x="516" y="160" fill="#62666d" font-size="12">dynamic size</text>
+
+    <rect x="730" y="80" width="180" height="88" rx="12" fill="#0a0a0b" stroke="#2a3a2a"/>
+    <text x="746" y="116" fill="#4ade80" font-size="16" font-weight="600">4 · Yield</text>
+    <text x="746" y="142" fill="#8a8f98" font-size="13">scheduler.yield / MC</text>
+    <text x="746" y="160" fill="#62666d" font-size="12">then AIMD update</text>
+  </g>
+
+  <!-- arrows -->
+  <path d="M220 124h42" stroke="#5e6ad2" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M450 124h42" stroke="#5e6ad2" stroke-width="2"/>
+  <path d="M680 124h42" stroke="#5e6ad2" stroke-width="2"/>
+
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" fill="none" stroke="#5e6ad2"/>
+    </marker>
+  </defs>
+
+  <!-- bottom explanation -->
+  <rect x="40" y="220" width="880" height="150" rx="12" fill="#0a0a0b" stroke="#23252a"/>
+  <text x="64" y="262" fill="#f7f8f8" font-family="ui-sans-serif,system-ui,sans-serif" font-size="18" font-weight="600">Congestion control for main-thread work</text>
+  <text x="64" y="298" fill="#8a8f98" font-family="ui-sans-serif,system-ui,sans-serif" font-size="15">Overshoot or pending input ’ cwnd × 0.5 (multiplicative decrease)</text>
+  <text x="64" y="326" fill="#8a8f98" font-family="ui-sans-serif,system-ui,sans-serif" font-size="15">Under budget ’ additive increase · same computational work, different when you yield</text>
+  <text x="64" y="354" fill="#62666d" font-family="ui-sans-serif,system-ui,sans-serif" font-size="14">Developers describe the work · PreFrame decides the slice size</text>
+</svg>

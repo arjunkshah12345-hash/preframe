@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none" role="img" aria-label="PreFrame">
+  <rect width="128" height="128" rx="28" fill="#010102"/>
+  <rect x="1" y="1" width="126" height="126" rx="27" stroke="#23252a" stroke-width="2"/>
+  <!-- frame corners -->
+  <path d="M28 40V32h8M100 40V32h-8M28 88v8h8M100 88v8h-8" stroke="#828fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- adaptive bars (batch sizes) -->
+  <rect x="38" y="72" width="10" height="16" rx="2" fill="#5e6ad2"/>
+  <rect x="52" y="56" width="10" height="32" rx="2" fill="#5e6ad2"/>
+  <rect x="66" y="44" width="10" height="44" rx="2" fill="#828fff"/>
+  <rect x="80" y="60" width="10" height="28" rx="2" fill="#5e6ad2"/>
+</svg>
