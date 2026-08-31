@@ -11,6 +11,7 @@
     "@preframe/core": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^26.4.0",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }

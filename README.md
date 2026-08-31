@@ -157,8 +157,9 @@ pnpm benchmark
 
 Compares sync, fixed-chunk, fixed-time, `setTimeout(0)`, `requestIdleCallback`, `scheduler.yield()` + fixed chunks, and PreFrame — across uniform / variable / bursty / large workloads.
 
-**Integrity:** identical seeded inputs, identical pure work function, FNV-style checksum must match. Sync usually wins wall-clock; PreFrame should win **max blocking time**, especially on variable/bursty loads.
+**Integrity:** identical seeded inputs, identical pure work function, FNV-style checksum must match. Sync usually wins wall-clock; PreFrame should win the **throughput vs max-blocking** tradeoff, especially vs naïve fixed chunks.
 
+Snapshot from this machine: [docs/BENCHMARKS.md](./docs/BENCHMARKS.md)  
 Methodology: [docs/METHODOLOGY.md](./docs/METHODOLOGY.md).
 
 ## Browser support
