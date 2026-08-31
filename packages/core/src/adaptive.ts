@@ -175,12 +175,12 @@ export function observeSlice(
     // Multiplicative decrease — aggressively back off
     cwnd = Math.max(config.minBatch, cwnd * 0.5);
   } else if (under && !obs.inputPending) {
-    // Additive increase — cautiously grow
-    const growth = Math.max(1, Math.floor(cwnd * 0.05));
+    // Faster additive increase once stable — recover throughput after cold start
+    const growth = Math.max(2, Math.floor(cwnd * (state.samples < 8 ? 0.15 : 0.08)));
     cwnd = Math.min(config.maxBatch, cwnd + growth);
   } else {
     // Mild additive probe
-    cwnd = Math.min(config.maxBatch, cwnd + 1);
+    cwnd = Math.min(config.maxBatch, cwnd + Math.max(1, Math.floor(cwnd * 0.02)));
   }
 
   return {

@@ -360,7 +360,14 @@ async function runPreframeWorkload(
   items: number[],
   kind: DemoWorkload,
   baseIntensity: number,
-  onProgress: (p: number) => void,
+  onProgress: (info: {
+    p: number;
+    batch?: number;
+    ewmaCostMs?: number;
+    cwnd?: number;
+    maxSliceMs?: number;
+    yields?: number;
+  }) => void,
 ): Promise<{
   results: number[];
   computeMs: number;
@@ -375,14 +382,20 @@ async function runPreframeWorkload(
     (item, index) => expensiveOp(item, intensity(kind, index, baseIntensity)),
     {
       targetFPS: 60,
-      maxSliceMs: 5,
+      maxSliceMs: 8,
       strategy: "adaptive",
-      initialCostMs: 0.2,
-      safetyMargin: 0.2,
-      onProgress: ({ index, total }) => onProgress(index / total),
+      initialCostMs: 0.15,
+      safetyMargin: 0.18,
+      onProgress: ({ index, total, metrics: m, batch, ewmaCostMs, cwnd }) =>
+        onProgress({
+          p: index / total,
+          batch,
+          ewmaCostMs,
+          cwnd,
+          maxSliceMs: m.maxSliceMs,
+          yields: m.yields,
+        }),
       env: {
-        // MessageChannel between slices; rAF every few yields so the UI paints
-        // without adding ~16ms to every slice (which balloons wall time).
         yieldToHost: (() => {
           let n = 0;
           const mc = () =>
@@ -400,13 +413,13 @@ async function runPreframeWorkload(
           return async () => {
             await mc();
             n += 1;
-            if (n % 4 === 0) await raf();
+            if (n % 6 === 0) await raf();
           };
         })(),
       },
     },
   );
-  onProgress(1);
+  onProgress({ p: 1 });
   return {
     results,
     computeMs: metrics.totalComputeMs,
@@ -434,11 +447,11 @@ function main(): void {
 
   const hero = el(`
     <header class="hero">
-      <p class="eyebrow">Adaptive cooperative scheduling</p>
+      <p class="eyebrow">Adaptive cooperative scheduling for the main thread</p>
       <h1><span class="brand">PreFrame</span>Let JavaScript work hard <em>without freezing the page.</em></h1>
       <p class="hero-lede">
-        Developers describe the work. PreFrame decides how much can run before
-        returning control to the browser — no fixed chunk sizes, no guessed yields.
+        Describe the work. PreFrame predicts how much fits in a frame, yields before
+        the UI stalls, and adapts like congestion control — not fixed chunk sizes.
       </p>
       <pre class="code-pill"><span class="kw">import</span> { run } <span class="kw">from</span> <span class="fn">"@preframe/core"</span>
 <span class="kw">await</span> <span class="fn">run</span>(items, item => expensive(item))</pre>
@@ -451,6 +464,17 @@ function main(): void {
     </header>
   `);
 
+  const delta = el(`
+    <div class="delta" id="delta">
+      <div class="delta-label">Max blocking time reduced<br/><strong id="delta-sub">identical work · identical checksum</strong></div>
+      <div class="delta-big" id="delta-big">—</div>
+      <div class="delta-bars">
+        <div class="bar-row"><span>sync</span><div class="bar-track"><div class="bar-fill sync" id="bar-sync"></div></div><span id="bar-sync-v">—</span></div>
+        <div class="bar-row"><span>preframe</span><div class="bar-track"><div class="bar-fill pf" id="bar-pf"></div></div><span id="bar-pf-v">—</span></div>
+      </div>
+    </div>
+  `);
+
   const left = buildPanel("without");
   const right = buildPanel("with");
 
@@ -459,7 +483,7 @@ function main(): void {
       <div class="arena-bar">
         <div class="arena-title">
           <span>Same work. Same checksum. Different scheduling.</span>
-          <span>Drag the dots · type · click while it runs. Sync will freeze the tab.</span>
+          <span>Drag the dots · type · click. Sync freezes the tab; PreFrame should not.</span>
         </div>
         <div class="arena-controls">
           <label class="select-wrap">shape
@@ -470,6 +494,13 @@ function main(): void {
             </select>
           </label>
         </div>
+      </div>
+      <div class="live-adapt" id="live-adapt">
+        <span>batch <b id="la-batch">—</b></span>
+        <span>ewma <b id="la-ewma">—</b></span>
+        <span>cwnd <b id="la-cwnd">—</b></span>
+        <span>slice max <b id="la-slice">—</b></span>
+        <span>yields <b id="la-yields">—</b></span>
       </div>
       <div class="split"></div>
       <div class="verify">
@@ -515,7 +546,18 @@ function main(): void {
     </div>
   `);
 
-  app.append(nav, hero, arena, how, footer, freezeOverlay);
+  const countdownOverlay = el(`
+    <div class="countdown-overlay" id="countdown-overlay" aria-live="assertive">
+      <div class="countdown-card">
+        <div class="eyebrow-c">Next: synchronous freeze</div>
+        <h3>Try typing or dragging…</h3>
+        <p>When the countdown hits zero, identical work runs without yielding. The tab will lock.</p>
+        <div class="count" id="countdown-n">3</div>
+      </div>
+    </div>
+  `);
+
+  app.append(nav, hero, delta, arena, how, footer, freezeOverlay, countdownOverlay);
 
   const fpsLeft = new FpsTracker(
     left.els.orb,
@@ -593,7 +635,48 @@ function main(): void {
     };
   }
 
-  async function runWithout(): Promise<string> {
+  const liveAdapt = arena.querySelector("#live-adapt") as HTMLElement;
+  const laBatch = arena.querySelector("#la-batch") as HTMLElement;
+  const laEwma = arena.querySelector("#la-ewma") as HTMLElement;
+  const laCwnd = arena.querySelector("#la-cwnd") as HTMLElement;
+  const laSlice = arena.querySelector("#la-slice") as HTMLElement;
+  const laYields = arena.querySelector("#la-yields") as HTMLElement;
+  const countdownEl = countdownOverlay;
+  const countdownN = countdownOverlay.querySelector("#countdown-n") as HTMLElement;
+  const deltaEl = delta;
+  const deltaBig = delta.querySelector("#delta-big") as HTMLElement;
+  const deltaSub = delta.querySelector("#delta-sub") as HTMLElement;
+  const barSync = delta.querySelector("#bar-sync") as HTMLElement;
+  const barPf = delta.querySelector("#bar-pf") as HTMLElement;
+  const barSyncV = delta.querySelector("#bar-sync-v") as HTMLElement;
+  const barPfV = delta.querySelector("#bar-pf-v") as HTMLElement;
+
+  async function countdown(seconds = 3): Promise<void> {
+    countdownEl.classList.add("on");
+    for (let s = seconds; s >= 1; s--) {
+      countdownN.textContent = String(s);
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    countdownN.textContent = "0";
+    await new Promise((r) => setTimeout(r, 280));
+    countdownEl.classList.remove("on");
+  }
+
+  function showDelta(syncBlock: number, pfBlock: number, cs: string): void {
+    const ratio = pfBlock > 0 ? syncBlock / pfBlock : Infinity;
+    deltaBig.textContent = Number.isFinite(ratio) ? `${ratio.toFixed(0)}×` : "∞";
+    deltaSub.textContent = `identical checksum ${cs} · sync ${formatMs(syncBlock)} → PreFrame ${formatMs(pfBlock)}`;
+    barSyncV.textContent = formatMs(syncBlock);
+    barPfV.textContent = formatMs(pfBlock);
+    const max = Math.max(syncBlock, pfBlock, 1);
+    deltaEl.classList.add("on");
+    requestAnimationFrame(() => {
+      barSync.style.width = `${(syncBlock / max) * 100}%`;
+      barPf.style.width = `${Math.max(2, (pfBlock / max) * 100)}%`;
+    });
+  }
+
+  async function runWithout(opts: { callout?: boolean } = { callout: true }): Promise<string> {
     const { items, kind, base } = getWork();
     leftM = emptyMetrics();
     fpsLeft.resetGaps();
@@ -609,7 +692,6 @@ function main(): void {
       renderMetrics(left.els, leftM);
     });
 
-    // After unblock, rAF catches up — use compute duration as max block
     leftM = {
       ...leftM,
       totalMs: result.totalMs,
@@ -624,9 +706,8 @@ function main(): void {
       progress: 1,
     };
     renderMetrics(left.els, leftM);
-    // Sync froze the whole tab — clear false "blocked" on the other panel
     fpsRight.clearBlocked();
-    showFreezeCallout(result.maxBlockMs);
+    if (opts.callout !== false) showFreezeCallout(result.maxBlockMs);
     return leftM.checksum;
   }
 
@@ -634,23 +715,30 @@ function main(): void {
     const { items, kind, base } = getWork();
     rightM = emptyMetrics();
     fpsRight.resetGaps();
+    liveAdapt.classList.add("on");
     const latency = measureInputLatency(right.els.input);
     latency.start();
     verifyStatus.textContent = "running PreFrame — keep dragging / typing…";
     verifyStatus.className = "";
     await new Promise((r) => requestAnimationFrame(() => r(null)));
 
-    const result = await runPreframeWorkload(items, kind, base, (p) => {
-      rightM.progress = p;
+    const result = await runPreframeWorkload(items, kind, base, (info) => {
+      rightM.progress = info.p;
       rightM.fps = fpsRight.fps;
+      if (info.maxSliceMs != null) rightM.maxBlockMs = info.maxSliceMs;
+      if (info.yields != null) rightM.yields = info.yields;
       renderMetrics(right.els, rightM);
+      if (info.batch != null) laBatch.textContent = String(info.batch);
+      if (info.ewmaCostMs != null) laEwma.textContent = `${info.ewmaCostMs.toFixed(3)} ms`;
+      if (info.cwnd != null) laCwnd.textContent = info.cwnd.toFixed(0);
+      if (info.maxSliceMs != null) laSlice.textContent = formatMs(info.maxSliceMs);
+      if (info.yields != null) laYields.textContent = String(info.yields);
     });
 
     rightM = {
       ...rightM,
       totalMs: result.totalMs,
       computeMs: result.computeMs,
-      // Scheduler slice length — not rAF gaps (those include GC / tab noise)
       maxBlockMs: result.maxBlockMs,
       avgSliceMs: result.avgSliceMs,
       yields: result.yields,
@@ -661,11 +749,13 @@ function main(): void {
       progress: 1,
     };
     renderMetrics(right.els, rightM);
+    window.setTimeout(() => liveAdapt.classList.remove("on"), 1200);
     return rightM.checksum;
   }
 
   runWithoutBtn.addEventListener("click", async () => {
     setBusy(true);
+    deltaEl.classList.remove("on");
     try {
       await runWithout();
       verifyStatus.textContent = `sync checksum ${leftM.checksum} · max block ${formatMs(leftM.maxBlockMs)}`;
@@ -676,6 +766,7 @@ function main(): void {
 
   runWithBtn.addEventListener("click", async () => {
     setBusy(true);
+    deltaEl.classList.remove("on");
     try {
       await runWith();
       verifyStatus.textContent = `preframe checksum ${rightM.checksum} · max block ${formatMs(rightM.maxBlockMs)}`;
@@ -687,15 +778,17 @@ function main(): void {
   runBothBtn.addEventListener("click", async () => {
     setBusy(true);
     verifyStatus.className = "";
+    deltaEl.classList.remove("on");
     try {
       verifyStatus.textContent = "Step 1/2 — PreFrame (drag / type — should stay fluid)";
       const b = await runWith();
-      await new Promise((r) => setTimeout(r, 500));
-      verifyStatus.textContent = "Step 2/2 — sync (entire tab will freeze ~1.4s)";
       await new Promise((r) => setTimeout(r, 400));
-      const a = await runWithout();
+      verifyStatus.textContent = "Step 2/2 — sync freeze incoming…";
+      await countdown(3);
+      const a = await runWithout({ callout: true });
       if (a === b) {
-        verifyStatus.textContent = `PASS · checksum ${a} · sync ${formatMs(leftM.maxBlockMs)} max block vs PreFrame ${formatMs(rightM.maxBlockMs)}`;
+        showDelta(leftM.maxBlockMs, rightM.maxBlockMs, a);
+        verifyStatus.textContent = `PASS · checksum ${a} · ${formatMs(leftM.maxBlockMs)} → ${formatMs(rightM.maxBlockMs)}`;
         verifyStatus.className = "ok";
       } else {
         verifyStatus.textContent = `FAIL · checksums differ (${a} vs ${b})`;

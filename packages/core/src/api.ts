@@ -4,7 +4,14 @@ export type WorkFn<T, R> = (item: T, index: number) => R | Promise<R>;
 
 export interface RunOptions extends SchedulerOptions {
   /** Called after each yield with progress info. */
-  onProgress?: (info: { index: number; total: number; metrics: SchedulerMetrics }) => void;
+  onProgress?: (info: {
+    index: number;
+    total: number;
+    metrics: SchedulerMetrics;
+    batch: number;
+    ewmaCostMs: number;
+    cwnd: number;
+  }) => void;
 }
 
 /**
@@ -25,10 +32,14 @@ export async function run<T, R = void>(
     let batch = scheduler.suggestedBatch();
     if (batch <= 0) {
       await scheduler.yield();
+      const state = scheduler.getState();
       options.onProgress?.({
         index: i,
         total: list.length,
         metrics: scheduler.metrics,
+        batch: scheduler.suggestedBatch(),
+        ewmaCostMs: state.ewmaCostMs,
+        cwnd: state.cwnd,
       });
       batch = Math.max(1, scheduler.suggestedBatch());
     }
@@ -46,10 +57,14 @@ export async function run<T, R = void>(
 
     if (i < list.length && scheduler.shouldYield()) {
       await scheduler.yield();
+      const state = scheduler.getState();
       options.onProgress?.({
         index: i,
         total: list.length,
         metrics: scheduler.metrics,
+        batch: scheduler.suggestedBatch(),
+        ewmaCostMs: state.ewmaCostMs,
+        cwnd: state.cwnd,
       });
     }
   }

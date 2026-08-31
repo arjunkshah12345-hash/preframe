@@ -63,11 +63,17 @@ async function main() {
   const syncCs = await page.locator('.panel-without [data-m="checksum"]').innerText();
   console.log("sync:", { syncMax, syncCs, wallMs: wall });
 
+  // Dismiss freeze callout if visible
+  const dismiss = page.locator("#freeze-dismiss");
+  if (await dismiss.isVisible().catch(() => false)) {
+    await dismiss.click();
+  }
+
   const withWall = await page.locator('.panel-with [data-m="totalMs"]').innerText();
   const syncWall = await page.locator('.panel-without [data-m="totalMs"]').innerText();
   console.log("walls:", { withWall, syncWall });
 
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(300);
   await page.screenshot({ path: "/tmp/preframe-gauntlet.png", fullPage: true });
   await browser.close();
 
@@ -85,11 +91,14 @@ async function main() {
   if (errors.length) verdicts.push(`CONSOLE_ERRORS: ${errors.join(" | ")}`);
   if (syncCs !== withCs) verdicts.push(`CHECKSUM_MISMATCH ${syncCs} vs ${withCs}`);
   if (!(syncBlock >= 800)) verdicts.push(`SYNC_TOO_SHORT ${syncBlock}ms (want ≥800)`);
-  if (!(preBlock <= 40)) verdicts.push(`PREFRAME_SLICE_HIGH ${preBlock}ms (want ≤40)`);
-  if (!(midFps >= 35)) verdicts.push(`PREFRAME_FPS_LOW mid-run ${midFpsText} (want ≥35)`);
-  if (preTotal > syncTotal * 3.5) {
-    verdicts.push(`PREFRAME_WALL_BLOAT ${preTotal}ms vs sync ${syncTotal}ms (>3.5x)`);
+  if (!(preBlock <= 16)) verdicts.push(`PREFRAME_SLICE_HIGH ${preBlock}ms (want ≤16)`);
+  if (!(midFps >= 40)) verdicts.push(`PREFRAME_FPS_LOW mid-run ${midFpsText} (want ≥40)`);
+  if (preTotal > syncTotal * 3.0) {
+    verdicts.push(`PREFRAME_WALL_BLOAT ${preTotal}ms vs sync ${syncTotal}ms (>3.0x)`);
   }
+
+  const ratio = preBlock > 0 ? syncBlock / preBlock : 0;
+  console.log(`blocking reduction: ${ratio.toFixed(1)}×`);
 
   if (!verdicts.length) {
     console.log("CRITIC_VERDICT: PASS — freeze noticeable, PreFrame fluid, checksums match");
