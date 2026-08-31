@@ -13,6 +13,7 @@
     "@preframe/core": "workspace:*"
   },
   "devDependencies": {
+    "playwright": "1.49.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   }

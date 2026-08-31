@@ -14,6 +14,7 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
+/** Dense hash mix — intentionally heavy so freezes are visible on fast machines. */
 export function expensiveOp(n: number, intensity: number): number {
   let x = (n + 1) * 2654435761;
   const iters = Math.max(1, Math.floor(intensity));
@@ -21,7 +22,9 @@ export function expensiveOp(n: number, intensity: number): number {
     x = Math.imul(x ^ (x >>> 16), 2246822507);
     x = Math.imul(x ^ (x >>> 13), 3266489909);
     x = (x ^ (x >>> 16)) >>> 0;
-    x = (x + Math.floor(Math.sin(x % 360) * 1000)) >>> 0;
+    // Keep transcendental work so V8 cannot fully elide the loop
+    x = (x + Math.floor(Math.sin((x % 360) + i) * 1000)) >>> 0;
+    x = Math.imul(x ^ (x >>> 15), 0x85ebca6b) >>> 0;
   }
   return x;
 }
@@ -50,19 +53,47 @@ export function buildDemoItems(count: number, seed: number): number[] {
   return Array.from({ length: count }, () => Math.floor(rng() * 1_000_000));
 }
 
-export function intensity(kind: DemoWorkload, index: number): number {
+export function intensity(kind: DemoWorkload, index: number, base: number): number {
   switch (kind) {
     case "uniform":
-      return 12;
+      return base;
     case "variable":
-      return 2 + ((index * 17) % 45);
+      return Math.max(4, Math.floor(base * (0.25 + ((index * 17) % 100) / 100)));
     case "bursty":
-      return index % 89 === 0 ? 160 : 6;
+      return index % 64 === 0 ? base * 8 : Math.max(4, Math.floor(base * 0.35));
   }
 }
 
-export const WORKLOAD_COUNTS: Record<DemoWorkload, number> = {
-  uniform: 120_000,
-  variable: 100_000,
-  bursty: 90_000,
-};
+/**
+ * Probe the machine and size a workload so sync blocks ~targetMs.
+ * Same calibrated (count, baseIntensity) is used for both paths.
+ */
+export function calibrateWorkload(
+  targetMs = 1400,
+  kind: DemoWorkload = "variable",
+): { count: number; baseIntensity: number; probeMs: number } {
+  const probeN = 5000;
+  const probeIntensity = 60;
+
+  // Warm the JIT so calibration matches the real run
+  for (let i = 0; i < probeN; i++) {
+    expensiveOp(i * 31, intensity(kind, i, probeIntensity));
+  }
+
+  const t0 = performance.now();
+  let acc = 0;
+  for (let i = 0; i < probeN; i++) {
+    acc ^= expensiveOp(i * 97, intensity(kind, i, probeIntensity));
+  }
+  const probeMs = Math.max(0.5, performance.now() - t0);
+  void acc;
+
+  const msPerOp = probeMs / probeN;
+  const avgFactor = kind === "uniform" ? 1 : kind === "variable" ? 0.75 : 0.55;
+  const effectiveMsPerOp = msPerOp * avgFactor;
+  // 1.25× headroom — JIT/OS noise still undershoots otherwise
+  let count = Math.floor((targetMs / effectiveMsPerOp) * 1.25);
+  count = Math.min(900_000, Math.max(120_000, count));
+  const baseIntensity = probeIntensity;
+  return { count, baseIntensity, probeMs };
+}

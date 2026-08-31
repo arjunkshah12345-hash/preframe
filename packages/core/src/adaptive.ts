@@ -70,12 +70,14 @@ export interface AdaptiveState {
 }
 
 export function createAdaptiveState(config: AdaptiveConfig): AdaptiveState {
-  // Seed cwnd from budget / initial cost so cheap work starts productive.
-  const seed = Math.floor(config.maxSliceMs / Math.max(config.initialCostMs, 1e-6));
+  // Conservative start — grow via AIMD once costs are measured.
+  const seed = Math.floor(
+    (config.maxSliceMs * 0.5) / Math.max(config.initialCostMs, 1e-6),
+  );
   return {
     ewmaCostMs: config.initialCostMs,
     ewmaCostSq: config.initialCostMs * config.initialCostMs,
-    cwnd: Math.min(config.maxBatch, Math.max(32, seed)),
+    cwnd: Math.min(config.maxBatch, Math.max(8, seed)),
     samples: 0,
     lastBatch: 0,
     lastDurationMs: 0,
@@ -139,6 +141,11 @@ export function predictBatchSize(
 
   const cost = Math.max(state.ewmaCostMs, 1e-6);
   let predicted = Math.floor(available / cost);
+
+  // Cold start: force tiny batches until we have real samples
+  if (state.samples < 3) {
+    predicted = Math.min(predicted, 16);
+  }
 
   // AIMD congestion window soft-cap
   predicted = Math.min(predicted, Math.floor(state.cwnd));

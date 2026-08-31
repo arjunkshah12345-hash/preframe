@@ -35,12 +35,12 @@ export async function run<T, R = void>(
 
     const end = Math.min(list.length, i + batch);
     const sliceStart = i;
+    const hardDeadline = scheduler.env.now() + scheduler.getBudget();
     while (i < end) {
       const item = list[i]!;
       results[i] = await fn(item, i);
       i += 1;
-      // Re-check mid-batch for pending input / budget exhaustion
-      if (i < end && scheduler.shouldYield()) break;
+      if (i < end && (scheduler.shouldYield() || scheduler.env.now() >= hardDeadline)) break;
     }
     scheduler.noteIterations(i - sliceStart);
 
